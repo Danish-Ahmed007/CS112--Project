@@ -1,70 +1,81 @@
-#include "character.h"
+#include "Character.h"
 #include "raymath.h"
 
-void Character::undoMovemment()
+Character::Character(int winWidth, int winHeight) : windowWidth(winWidth),
+                                                    windowHeight(winHeight)
 {
-    worldPos = worldPosLastFrame;
+    width = texture.width / maxFrames;
+    height = texture.height;
 }
 
-Character ::Character(int windowWidth, int windowHeight)
+Vector2 Character::getScreenPos()
 {
-    width = texture.width / maxFrame;
-    height = texture.height;
-    screenPos = {static_cast<float>(windowWidth) / 2.0f - scale * (0.5f * width),
-                 static_cast<float>(windowHeight) / 2.0f - scale * (0.5f * height)};
+    return Vector2{
+        static_cast<float>(windowWidth) / 2.0f - scale * (0.5f * width),
+        static_cast<float>(windowHeight) / 2.0f - scale * (0.5f * height)};
 }
 
 void Character::tick(float deltaTime)
 {
-    worldPosLastFrame = worldPos;
+    if (!getAlive())
+        return;
 
-    Vector2 direction{};
-
-    if (IsKeyDown(KEY_S))
-        direction.y += 1.0;
-    if (IsKeyDown(KEY_W))
-        direction.y -= 1.0;
     if (IsKeyDown(KEY_A))
-        direction.x -= 1.0;
+        velocity.x -= 1.0;
     if (IsKeyDown(KEY_D))
-        direction.x += 1.0;
+        velocity.x += 1.0;
+    if (IsKeyDown(KEY_W))
+        velocity.y -= 1.0;
+    if (IsKeyDown(KEY_S))
+        velocity.y += 1.0;
+    BaseCharacter::tick(deltaTime);
 
-    if (Vector2Length(direction) != 0.0)
+    Vector2 origin{};
+    Vector2 offset{};
+    float rotation{};
+    if (rightLeft > 0.f)
     {
-        worldPos = Vector2Add(worldPos, Vector2Scale(Vector2Normalize(direction), speed));
-        direction.x < 0.0 ? rightLeft = -1 : rightLeft = 1;
-        texture = textureRun;
+        origin = {0.f, weapon.height * scale};
+        offset = {35.f, 55.f};
+        weaponCollisionRec = {
+            getScreenPos().x + offset.x,
+            getScreenPos().y + offset.y - weapon.height * scale,
+            weapon.width * scale,
+            weapon.height * scale};
+        rotation = (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) ? 35.f : 0.f;
     }
     else
-        texture = textureIdle;
-
-    // update animation frame
-    runningTime += deltaTime;
-    if (runningTime >= updateTime)
     {
-        frame++;
-        runningTime = 0.f;
-        if (frame > maxFrame)
-            frame = 0;
+        origin = {weapon.width * scale, weapon.height * scale};
+        offset = {25.f, 55.f};
+        weaponCollisionRec = {
+            getScreenPos().x + offset.x - weapon.width * scale,
+            getScreenPos().y + offset.y - weapon.height * scale,
+            weapon.width * scale,
+            weapon.height * scale};
+        rotation = (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) ? -35.f : 0.f;
     }
 
-    // draw the character
-    Rectangle knightDest = {screenPos.x, screenPos.y, scale * width, scale * height};
-    Rectangle knightSource = {frame * width, 0.0, rightLeft * width, height};
+    // draw the sword
+    Rectangle source{0.f, 0.f, static_cast<float>(weapon.width) * rightLeft, static_cast<float>(weapon.height)};
+    Rectangle dest{getScreenPos().x + offset.x, getScreenPos().y + offset.y, weapon.width * scale, weapon.height * scale};
+    DrawTexturePro(weapon, source, dest, origin, rotation, WHITE);
 
-    DrawTexturePro(texture, knightSource, knightDest, Vector2{}, 0.0, WHITE);
+    // identifying the location of the sword
 
-    DrawTexturePro(texture, knightSource, knightDest, Vector2{}, 0.0, WHITE);
+    // DrawRectangleLines(
+    //     weaponCollisionRec.x,
+    //     weaponCollisionRec.y,
+    //     weaponCollisionRec.width,
+    //     weaponCollisionRec.height,
+    //     RED);
 }
 
-
-    Rectangle Character:: GetCollisionRec(){
-
-        return Rectangle{
-            screenPos.x,
-            screenPos.y,
-            width * scale,
-            height * scale
-        };
+void Character::getDamage(float damage)
+{
+    health -= damage;
+    if(health <= 0.f)
+    {
+        setAlive(false);
     }
-
+}
